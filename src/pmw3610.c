@@ -597,6 +597,15 @@ static enum pixart_input_mode get_input_mode_for_current_layer(const struct devi
     return MOVE;
 }
 
+// 現在の向きを保持する変数
+static bool orientation_90 = false;
+
+// 向きを切り替える関数
+static void toggle_orientation(const struct device *dev) {
+    orientation_90 = !orientation_90;
+    LOG_INF("Orientation changed to %d degrees", orientation_90 ? 90 : 0);
+}
+
 static int pmw3610_report_data(const struct device *dev) {
     struct pixart_data *data = dev->data;
     uint8_t buf[PMW3610_BURST_SIZE];
@@ -604,6 +613,15 @@ static int pmw3610_report_data(const struct device *dev) {
     if (unlikely(!data->ready)) {
         LOG_WRN("Device is not initialized yet");
         return -EBUSY;
+    }
+
+    // 向きに応じて座標を変換
+    if (orientation_90) {
+        x = raw_y;
+        y = -raw_x;
+    } else {
+        x = -raw_x;
+        y = raw_y;
     }
 
     int32_t dividor;
