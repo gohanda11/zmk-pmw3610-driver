@@ -18,6 +18,14 @@ properties:
   automouse-layer:
     type: int
     default: -1
+  orientation-layers:
+    type: array
+    default: []
+    description: "Layers that have custom orientations"
+  layer-orientations:
+    type: array
+    default: []
+    description: "Orientations for each layer (0=0deg, 1=90deg, 2=180deg, 3=270deg)"
 
 child-binding:
   description: "Invoke behaviors when the track ball is moved on specific layers"
