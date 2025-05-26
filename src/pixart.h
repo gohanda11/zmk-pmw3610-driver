@@ -74,6 +74,10 @@ struct pixart_config {
     int32_t *snipe_layers;
     struct ball_action_cfg **ball_actions;
     size_t ball_actions_len;
+    // 新しく追加
+    size_t orientation_layers_len;
+    int32_t *orientation_layers;
+    uint8_t *layer_orientations;
 };
 
 #ifdef __cplusplus
