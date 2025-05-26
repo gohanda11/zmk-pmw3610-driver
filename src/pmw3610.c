@@ -938,13 +938,7 @@ DT_INST_FOREACH_CHILD(0, BALL_ACTIONS_INST)
         .ball_actions_len = BALL_ACTIONS_LEN,                                                      \
     };                                                                                             \
                                                                                                    \
-    DEVICE_DT_INST_DEFINE(0,
-                      pmw3610_init,
-                      NULL,
-                      &pmw3610_data,
-                      &pmw3610_config,
-                      POST_KERNEL,              // ←初期化レベル
-                      CONFIG_SENSOR_INIT_PRIORITY, // ←優先度
-                      &pmw3610_api);
+    DEVICE_DT_INST_DEFINE(n, pmw3610_init, NULL, &data##n, &config##n, POST_KERNEL,                \
+                          CONFIG_SENSOR_INIT_PRIORITY, NULL);
 
 DT_INST_FOREACH_STATUS_OKAY(PMW3610_DEFINE)
