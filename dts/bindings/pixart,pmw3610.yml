@@ -21,11 +21,11 @@ properties:
   orientation-layers:
     type: array
     default: []
-    description: "Layers that have custom orientations"
+    description: "Layers on which to apply custom orientations"
   layer-orientations:
     type: array
     default: []
-    description: "Orientations for each layer (0=0deg, 1=90deg, 2=180deg, 3=270deg)"
+    description: "Orientations for each layer (0=0°, 1=90°, 2=180°, 3=270°)"
 
 child-binding:
   description: "Invoke behaviors when the track ball is moved on specific layers"
