@@ -602,28 +602,38 @@ static int get_orientation_for_current_layer(const struct device *dev) {
     const struct pixart_config *config = dev->config;
     uint8_t curr_layer = zmk_keymap_highest_layer_active();
     
+    LOG_DBG("Current layer: %d, orientation_layers_len: %d, layer_orientations_len: %d", 
+            curr_layer, config->orientation_layers_len, config->layer_orientations_len);
+    
     // Check if the current layer has a custom orientation
     for (size_t i = 0; i < config->orientation_layers_len; i++) {
+        LOG_DBG("Checking layer %d at index %d", config->orientation_layers[i], i);
         if (curr_layer == config->orientation_layers[i] && i < config->layer_orientations_len) {
-            return config->layer_orientations[i];
+            int orientation = config->layer_orientations[i];
+            LOG_INF("Layer %d: Using custom orientation %d", curr_layer, orientation);
+            return orientation;
         }
     }
     
     // Return default orientation based on compile-time configuration
+    int default_orientation = 0;
     if (IS_ENABLED(CONFIG_PMW3610_ORIENTATION_0)) {
-        return 0;
+        default_orientation = 0;
     } else if (IS_ENABLED(CONFIG_PMW3610_ORIENTATION_90)) {
-        return 1;
+        default_orientation = 1;
     } else if (IS_ENABLED(CONFIG_PMW3610_ORIENTATION_180)) {
-        return 2;
+        default_orientation = 2;
     } else if (IS_ENABLED(CONFIG_PMW3610_ORIENTATION_270)) {
-        return 3;
+        default_orientation = 3;
     }
     
-    return 0; // Default to 0 degrees
+    LOG_DBG("Layer %d: Using default orientation %d", curr_layer, default_orientation);
+    return default_orientation;
 }
 
 static void apply_orientation(int16_t *x, int16_t *y, int16_t raw_x, int16_t raw_y, int orientation) {
+    LOG_DBG("Applying orientation %d to raw_x=%d, raw_y=%d", orientation, raw_x, raw_y);
+    
     switch (orientation) {
         case 0: // 0 degrees
             *x = -raw_x;
@@ -646,6 +656,8 @@ static void apply_orientation(int16_t *x, int16_t *y, int16_t raw_x, int16_t raw
             *y = raw_y;
             break;
     }
+    
+    LOG_DBG("Result: x=%d, y=%d", *x, *y);
 }
 
 static int pmw3610_report_data(const struct device *dev) {
