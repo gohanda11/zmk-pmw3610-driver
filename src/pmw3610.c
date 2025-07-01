@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2022 The ZMK Contributors
  *
@@ -418,54 +419,6 @@ static int set_downshift_time(const struct device *dev, uint8_t reg_addr, uint32
     return err;
 }
 
-static void apply_orientation_transform(int16_t raw_x, int16_t raw_y, int16_t *x, int16_t *y, uint8_t orientation) {
-    switch (orientation) {
-    case 0: // 0度
-        *x = -raw_x;
-        *y = raw_y;
-        break;
-    case 1: // 90度時計回り
-        *x = raw_y;
-        *y = -raw_x;
-        break;
-    case 2: // 180度
-        *x = raw_x;
-        *y = -raw_y;
-        break;
-    case 3: // 270度時計回り
-        *x = -raw_y;
-        *y = raw_x;
-        break;
-    default:
-        *x = -raw_x;
-        *y = raw_y;
-        break;
-    }
-}
-
-static uint8_t get_orientation_for_current_layer(const struct device *dev) {
-    const struct pixart_config *config = dev->config;
-    uint8_t curr_layer = zmk_keymap_highest_layer_active();
-    
-    for (size_t i = 0; i < config->orientation_layers_len; i++) {
-        if (curr_layer == config->orientation_layers[i]) {
-            return config->layer_orientations[i];
-        }
-    }
-    
-    // デフォルトの向きを返す
-    if (IS_ENABLED(CONFIG_PMW3610_ORIENTATION_0)) {
-        return 0;
-    } else if (IS_ENABLED(CONFIG_PMW3610_ORIENTATION_90)) {
-        return 1;
-    } else if (IS_ENABLED(CONFIG_PMW3610_ORIENTATION_180)) {
-        return 2;
-    } else if (IS_ENABLED(CONFIG_PMW3610_ORIENTATION_270)) {
-        return 3;
-    }
-    return 0;
-}
-
 static void set_interrupt(const struct device *dev, const bool en) {
     const struct pixart_config *config = dev->config;
     int ret = gpio_pin_interrupt_configure_dt(&config->irq_gpio,
@@ -645,6 +598,56 @@ static enum pixart_input_mode get_input_mode_for_current_layer(const struct devi
     return MOVE;
 }
 
+static int get_orientation_for_current_layer(const struct device *dev) {
+    const struct pixart_config *config = dev->config;
+    uint8_t curr_layer = zmk_keymap_highest_layer_active();
+    
+    // Check if the current layer has a custom orientation
+    for (size_t i = 0; i < config->orientation_layers_len; i++) {
+        if (curr_layer == config->orientation_layers[i] && i < config->layer_orientations_len) {
+            return config->layer_orientations[i];
+        }
+    }
+    
+    // Return default orientation based on compile-time configuration
+    if (IS_ENABLED(CONFIG_PMW3610_ORIENTATION_0)) {
+        return 0;
+    } else if (IS_ENABLED(CONFIG_PMW3610_ORIENTATION_90)) {
+        return 1;
+    } else if (IS_ENABLED(CONFIG_PMW3610_ORIENTATION_180)) {
+        return 2;
+    } else if (IS_ENABLED(CONFIG_PMW3610_ORIENTATION_270)) {
+        return 3;
+    }
+    
+    return 0; // Default to 0 degrees
+}
+
+static void apply_orientation(int16_t *x, int16_t *y, int16_t raw_x, int16_t raw_y, int orientation) {
+    switch (orientation) {
+        case 0: // 0 degrees
+            *x = -raw_x;
+            *y = raw_y;
+            break;
+        case 1: // 90 degrees
+            *x = raw_y;
+            *y = -raw_x;
+            break;
+        case 2: // 180 degrees
+            *x = raw_x;
+            *y = -raw_y;
+            break;
+        case 3: // 270 degrees
+            *x = -raw_y;
+            *y = raw_x;
+            break;
+        default:
+            *x = -raw_x;
+            *y = raw_y;
+            break;
+    }
+}
+
 static int pmw3610_report_data(const struct device *dev) {
     struct pixart_data *data = dev->data;
     uint8_t buf[PMW3610_BURST_SIZE];
@@ -709,12 +712,15 @@ static int pmw3610_report_data(const struct device *dev) {
         TOINT16((buf[PMW3610_X_L_POS] + ((buf[PMW3610_XY_H_POS] & 0xF0) << 4)), 12) / dividor;
     int16_t raw_y =
         TOINT16((buf[PMW3610_Y_L_POS] + ((buf[PMW3610_XY_H_POS] & 0x0F) << 8)), 12) / dividor;
-    // レイヤーごとの向きを取得して適用
-    uint8_t orientation = get_orientation_for_current_layer(dev);
-    apply_orientation_transform(raw_x, raw_y, &x, &y, orientation);
+
+    // Apply dynamic orientation based on current layer
+    int orientation = get_orientation_for_current_layer(dev);
+    apply_orientation(&x, &y, raw_x, raw_y, orientation);
+
     if (IS_ENABLED(CONFIG_PMW3610_INVERT_X)) {
         x = -x;
     }
+
     if (IS_ENABLED(CONFIG_PMW3610_INVERT_Y)) {
         y = -y;
     }
@@ -951,7 +957,7 @@ DT_INST_FOREACH_CHILD(0, BALL_ACTIONS_INST)
     static int32_t scroll_layers##n[] = DT_PROP(DT_DRV_INST(n), scroll_layers);                    \
     static int32_t snipe_layers##n[] = DT_PROP(DT_DRV_INST(n), snipe_layers);                      \
     static int32_t orientation_layers##n[] = DT_PROP(DT_DRV_INST(n), orientation_layers);          \
-    static uint8_t layer_orientations##n[] = DT_PROP(DT_DRV_INST(n), layer_orientations);          \
+    static int32_t layer_orientations##n[] = DT_PROP(DT_DRV_INST(n), layer_orientations);          \
     static struct ball_action_cfg *ball_actions[] = {DT_INST_FOREACH_CHILD(0, BALL_ACTIONS_ITEM)}; \
     static const struct pixart_config config##n = {                                                \
         .irq_gpio = GPIO_DT_SPEC_INST_GET(n, irq_gpios),                                           \
@@ -974,6 +980,7 @@ DT_INST_FOREACH_CHILD(0, BALL_ACTIONS_INST)
         .orientation_layers = orientation_layers##n,                                               \
         .orientation_layers_len = DT_PROP_LEN(DT_DRV_INST(n), orientation_layers),                 \
         .layer_orientations = layer_orientations##n,                                               \
+        .layer_orientations_len = DT_PROP_LEN(DT_DRV_INST(n), layer_orientations),                 \
         .ball_actions = ball_actions,                                                              \
         .ball_actions_len = BALL_ACTIONS_LEN,                                                      \
     };                                                                                             \
